@@ -109,7 +109,7 @@ export default function HostGame() {
 
   if (!gameState) return <div className="min-h-screen flex items-center justify-center">Loading Data...</div>;
 
-  const currentQ = gameState.questions[gameState.currentQuestionIndex];
+  const currentQ = questions[gameState.currentQuestionIndex];
 
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col relative text-white">
@@ -157,7 +157,7 @@ export default function HostGame() {
               <div className="bg-blue-600 px-6 py-2 rounded-full font-bold mb-6 flex gap-3 text-lg items-center shadow-lg">
                 <span>ROUND {currentQ.round}</span>
                 <span className="w-2 h-2 rounded-full bg-white opacity-50"></span>
-                <span>Question {gameState.currentQuestionIndex + 1} of {gameState.questions.length}</span>
+                <span>Question {gameState.currentQuestionIndex + 1} of {questions.length}</span>
               </div>
               
               <h2 className="text-4xl md:text-5xl font-bold text-center mb-12 leading-tight">

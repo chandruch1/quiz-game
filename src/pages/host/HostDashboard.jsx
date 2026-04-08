@@ -15,6 +15,7 @@ export default function HostDashboard() {
     timer: '20'
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleAddQuestion = (e) => {
@@ -52,47 +53,74 @@ export default function HostDashboard() {
       return;
     }
     
+    // Check if db is explicitly null due to initialization failure
+    if (!db) {
+      alert("🚨 FIREBASE ERROR: Firebase is not configured. Please open src/firebase.js and insert valid API keys before starting the game.");
+      setError("FIREBASE ERROR: Invalid config.");
+      return;
+    }
+    
+    // Check if the db instance is actively using the dummy template strings
+    if (db.app.options.apiKey === "YOUR_API_KEY_HERE" || !db.app.options.apiKey) {
+      alert("🚨 FIREBASE KEYS REQUIRED: You are currently using the placeholder 'YOUR_API_KEY_HERE'. \n\nFirestore cannot write the game data. Please open src/firebase.js and update it with your real Firebase Project credentials from console.firebase.google.com");
+      setError("FIREBASE ERROR: Placeholder keys detected.");
+      return;
+    }
+    
     const gamePin = Math.floor(100000 + Math.random() * 900000).toString();
     const hostId = 'host_' + Date.now();
 
-    if (db) {
-      try {
-        const batch = writeBatch(db);
-        
-        // 1. Create main game document
-        const gameRef = doc(db, 'games', gamePin);
-        batch.set(gameRef, {
-          gamePin,
-          hostId,
-          status: 'lobby',
-          currentRound: questions[0].round,
-          currentQuestionIndex: -1,
-          isPaused: false
-        });
+    setLoading(true);
+    setError("Connecting to Firestore database...");
 
-        // 2. Add Host to players subcollection
-        const hostRef = doc(db, 'games', gamePin, 'players', hostId);
-        batch.set(hostRef, {
-          id: hostId,
-          name: 'Host',
-          isHost: true,
-          score: 0
-        });
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. Create main game document
+      const gameRef = doc(db, 'games', gamePin);
+      batch.set(gameRef, {
+        gamePin,
+        hostId,
+        status: 'lobby',
+        currentRound: questions[0].round,
+        currentQuestionIndex: -1,
+        isPaused: false
+      });
 
-        // 3. Add questions to questions subcollection
-        questions.forEach((q, idx) => {
-          const qRef = doc(db, 'games', gamePin, 'questions', String(idx));
-          batch.set(qRef, q);
-        });
+      // 2. Add Host to players subcollection
+      const hostRef = doc(db, 'games', gamePin, 'players', hostId);
+      batch.set(hostRef, {
+        id: hostId,
+        name: 'Host',
+        isHost: true,
+        score: 0
+      });
 
-        await batch.commit();
-        window.localStorage.setItem('hostId', hostId);
-      } catch (e) { 
-        console.error("Firestore batch write error:", e);
+      // 3. Add questions to questions subcollection
+      questions.forEach((q, idx) => {
+        const qRef = doc(db, 'games', gamePin, 'questions', String(idx));
+        batch.set(qRef, q);
+      });
+
+      // Create a timeout race so it doesn't hang forever
+      const timeoutPromise = new Promise((_, reject) => 
+         setTimeout(() => reject(new Error("TIMEOUT")), 5000)
+      );
+
+      await Promise.race([batch.commit(), timeoutPromise]);
+      
+      window.localStorage.setItem('hostId', hostId);
+      navigate(`/host/game/${gamePin}`);
+
+    } catch (e) { 
+      console.error("Firestore batch write error:", e);
+      if (e.message === "TIMEOUT") {
+        setError("⏱️ TIMEOUT: Firestore is unresponsive. Did you click the orange 'Create Database' button inside the Firestore tab on your Firebase Console? The database must be actively created first!");
+      } else {
+        setError("🚨 PERMISSION DENIED: Your Firebase Security Rules are blocking writes. Please update your Rules to 'true' in the Firebase Console!");
       }
-    } 
-    
-    navigate(`/host/game/${gamePin}`);
+    }
+    setLoading(false);
   };
 
   return (
