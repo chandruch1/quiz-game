@@ -52,21 +52,7 @@ export default function HostDashboard() {
       setError("Add at least one question to start a game.");
       return;
     }
-    
-    // Check if db is explicitly null due to initialization failure
-    if (!db) {
-      alert("🚨 FIREBASE ERROR: Firebase is not configured. Please open src/firebase.js and insert valid API keys before starting the game.");
-      setError("FIREBASE ERROR: Invalid config.");
-      return;
-    }
-    
-    // Check if the db instance is actively using the dummy template strings
-    if (db.app.options.apiKey === "YOUR_API_KEY_HERE" || !db.app.options.apiKey) {
-      alert("🚨 FIREBASE KEYS REQUIRED: You are currently using the placeholder 'YOUR_API_KEY_HERE'. \n\nFirestore cannot write the game data. Please open src/firebase.js and update it with your real Firebase Project credentials from console.firebase.google.com");
-      setError("FIREBASE ERROR: Placeholder keys detected.");
-      return;
-    }
-    
+
     const gamePin = Math.floor(100000 + Math.random() * 900000).toString();
     const hostId = 'host_' + Date.now();
 

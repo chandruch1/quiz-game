@@ -33,13 +33,15 @@ export default function HostGame() {
       setPlayers(pList);
     });
 
-    // Fetch questions sequentially
+    // Fetch questions sequentially and ensure correct chronological sorting
     const fetchQuestions = async () => {
        try {
          const qSnap = await getDocs(collection(db, "games", gamePin, "questions"));
-         const list = qSnap.docs.map(d => d.data());
-         // Sort based on their id string keys (0, 1, 2) that we wrote in HostDashboard
-         setQuestions(list);
+         // Sort by the specific document ID string ("0", "1", "2") that we assigned in the Dashboard batch write
+         const sortedList = qSnap.docs
+           .sort((a, b) => parseInt(a.id) - parseInt(b.id))
+           .map(d => d.data());
+         setQuestions(sortedList);
        } catch (e) {
          console.error(e);
        }
@@ -79,11 +81,15 @@ export default function HostGame() {
     if (!gameState) return;
     const nextIdx = gameState.currentQuestionIndex + 1;
     
-    // Clear out 'answer' states for players for the new round
+    // Clear per-question fields for all players
     if (db) {
        for (const p of players) {
           try {
-             await updateDoc(doc(db, 'games', gamePin, 'players', p.id), { answer: null });
+             await updateDoc(doc(db, 'games', gamePin, 'players', p.id), {
+               answer:          null,
+               betValue:        null,
+               confidenceLevel: null,
+             });
           } catch(e) {}
        }
     }
@@ -150,6 +156,13 @@ export default function HostGame() {
                 </div>
               )}
             </motion.div>
+          )}
+
+          {gameState.status === 'question' && !currentQ && (
+             <motion.div key="loading" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex flex-col items-center justify-center p-12 glass-panel">
+               <div className="w-16 h-16 border-4 border-blue-500 border-t-white rounded-full animate-spin mb-6"></div>
+               <h2 className="text-3xl font-bold animate-pulse text-slate-300">Syncing Question Data...</h2>
+             </motion.div>
           )}
 
           {gameState.status === 'question' && currentQ && (

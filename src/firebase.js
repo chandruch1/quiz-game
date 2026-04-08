@@ -7,15 +7,8 @@ const firebaseConfig = {
   projectId: "quiz-4129b",
   storageBucket: "quiz-4129b.firebasestorage.app",
   messagingSenderId: "57331319537",
-  appId: "1:57331319537:web:dae43818de35f01d6a5f50",
-  measurementId: "G-Q1ZBD4P9ST"
+  appId: "1:57331319537:web:dae43818de35f01d6a5f50"
 };
 
-let app;
-try {
-  app = initializeApp(firebaseConfig);
-} catch (e) {
-  console.error("Firebase initialization failed. Did you configure the keys?", e);
-}
-
-export const db = app ? getFirestore(app) : null;
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
