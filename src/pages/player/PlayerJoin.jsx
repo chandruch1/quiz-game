@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { rtdb } from '../../firebase';
-import { ref, set, get } from 'firebase/database';
+import { db } from '../../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 
 export default function PlayerJoin() {
@@ -21,21 +21,23 @@ export default function PlayerJoin() {
 
     const playerId = 'player_' + Date.now();
 
-    if (rtdb) {
+    if (db) {
       try {
-        const gameRef = ref(rtdb, `games/${pin}`);
-        const snapshot = await get(gameRef);
+        const gameRef = doc(db, `games`, pin);
+        const snapshot = await getDoc(gameRef);
+        
         if (snapshot.exists()) {
-          const state = snapshot.val();
+          const state = snapshot.data();
           if (state.status !== 'lobby') {
             setError("Game has already started.");
             setLoading(false);
             return;
           }
-          await set(ref(rtdb, `games/${pin}/players/${playerId}`), {
+          await setDoc(doc(db, `games`, pin, `players`, playerId), {
             id: playerId,
             name: name,
-            score: 0
+            score: 0,
+            isHost: false
           });
           window.localStorage.setItem('playerId', playerId);
           navigate(`/play/${pin}`);
@@ -44,24 +46,7 @@ export default function PlayerJoin() {
         }
       } catch (e) {
         setError("Error connecting to game.");
-      }
-    } else {
-      // Mock logic
-      const json = window.localStorage.getItem(`mock_game_${pin}`);
-      if (json) {
-        const state = JSON.parse(json);
-        if (state.status !== 'lobby') {
-           setError("Game has already started.");
-           setLoading(false);
-           return;
-        }
-        if (!state.players) state.players = {};
-        state.players[playerId] = { id: playerId, name, score: 0 };
-        window.localStorage.setItem(`mock_game_${pin}`, JSON.stringify(state));
-        window.localStorage.setItem('playerId', playerId);
-        navigate(`/play/${pin}`);
-      } else {
-        setError("Game PIN not found (Local Mock).");
+        console.error(e);
       }
     }
     setLoading(false);

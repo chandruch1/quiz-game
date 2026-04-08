@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { db, rtdb } from '../../firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { ref, set } from 'firebase/database';
+import React, { useState } from 'react';
+import { db } from '../../firebase';
+import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Play, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -18,22 +17,7 @@ export default function HostDashboard() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchQuestions();
-  }, []);
-
-  const fetchQuestions = async () => {
-    if (!db) return;
-    try {
-      const qSnap = await getDocs(collection(db, "questions"));
-      const list = qSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setQuestions(list);
-    } catch (e) {
-      console.log("Firebase not configured. Using local state.");
-    }
-  };
-
-  const handleAddQuestion = async (e) => {
+  const handleAddQuestion = (e) => {
     e.preventDefault();
     if (!qData.question || !qData.optA || !qData.optB || !qData.optC || !qData.optD) {
       setError('All fields are required.');
@@ -42,6 +26,7 @@ export default function HostDashboard() {
     setError('');
 
     const newQ = {
+      id: Date.now().toString(),
       question: qData.question,
       options: [qData.optA, qData.optB, qData.optC, qData.optD],
       correctAnswer: qData[`opt${qData.correctAnswer}`],
@@ -49,14 +34,7 @@ export default function HostDashboard() {
       timer: parseInt(qData.timer)
     };
 
-    if (db) {
-      try {
-        const docRef = await addDoc(collection(db, "questions"), newQ);
-        setQuestions([...questions, { id: docRef.id, ...newQ }]);
-      } catch (e) {}
-    } else {
-      setQuestions([...questions, { id: Date.now().toString(), ...newQ }]);
-    }
+    setQuestions([...questions, newQ]);
 
     setQData({
       question: '', optA: '', optB: '', optC: '', optD: '',
@@ -64,10 +42,7 @@ export default function HostDashboard() {
     });
   };
 
-  const handleDelete = async (id) => {
-    if (db) {
-      try { await deleteDoc(doc(db, "questions", id)); } catch(e) {}
-    }
+  const handleDelete = (id) => {
     setQuestions(questions.filter(q => q.id !== id));
   };
 
@@ -76,26 +51,46 @@ export default function HostDashboard() {
       setError("Add at least one question to start a game.");
       return;
     }
-    // Generate a 6 digit PIN
+    
     const gamePin = Math.floor(100000 + Math.random() * 900000).toString();
+    const hostId = 'host_' + Date.now();
 
-    // Prepare game state
-    const initialState = {
-      gamePin,
-      status: 'lobby',
-      currentQuestionIndex: -1,
-      questions: questions,
-      hostId: 'host_' + Date.now()
-    };
-
-    if (rtdb) {
+    if (db) {
       try {
-        await set(ref(rtdb, `games/${gamePin}`), initialState);
-      } catch(e) { console.error(e); }
-    } else {
-      // Setup local mock mapping
-      window.localStorage.setItem(`mock_game_${gamePin}`, JSON.stringify(initialState));
-    }
+        const batch = writeBatch(db);
+        
+        // 1. Create main game document
+        const gameRef = doc(db, 'games', gamePin);
+        batch.set(gameRef, {
+          gamePin,
+          hostId,
+          status: 'lobby',
+          currentRound: questions[0].round,
+          currentQuestionIndex: -1,
+          isPaused: false
+        });
+
+        // 2. Add Host to players subcollection
+        const hostRef = doc(db, 'games', gamePin, 'players', hostId);
+        batch.set(hostRef, {
+          id: hostId,
+          name: 'Host',
+          isHost: true,
+          score: 0
+        });
+
+        // 3. Add questions to questions subcollection
+        questions.forEach((q, idx) => {
+          const qRef = doc(db, 'games', gamePin, 'questions', String(idx));
+          batch.set(qRef, q);
+        });
+
+        await batch.commit();
+        window.localStorage.setItem('hostId', hostId);
+      } catch (e) { 
+        console.error("Firestore batch write error:", e);
+      }
+    } 
     
     navigate(`/host/game/${gamePin}`);
   };

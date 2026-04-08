@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { rtdb } from '../../firebase';
-import { ref, onValue, set, update } from 'firebase/database';
+import { db } from '../../firebase';
+import { doc, onSnapshot, getDocs, collection, updateDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PlayerGame() {
   const { gamePin } = useParams();
   const navigate = useNavigate();
   const [gameState, setGameState] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [playerData, setPlayerData] = useState({ score: 0 });
   const [hasAnswered, setHasAnswered] = useState(false);
   const [confidence, setConfidence] = useState('MID');
   const [lastResult, setLastResult] = useState({ isCorrect: false, points: 0 });
@@ -25,13 +27,14 @@ export default function PlayerGame() {
       return;
     }
 
-    if (rtdb) {
-      const gRef = ref(rtdb, `games/${gamePin}`);
-      const unsub = onValue(gRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
+    if (db) {
+      // 1. Listen to Game State
+      const gameRef = doc(db, 'games', gamePin);
+      const unsubGame = onSnapshot(gameRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
           setGameState(data);
-          // Auto reset answer state on new question
+          
           if (data.status === 'question' && window.localStorage.getItem('currentQ') !== String(data.currentQuestionIndex)) {
             setHasAnswered(false);
             setSelectedOption(null);
@@ -43,43 +46,47 @@ export default function PlayerGame() {
           navigate('/');
         }
       });
-      return () => unsub();
-    } else {
-      // Offline mock polling
-      const interval = setInterval(() => {
-        const json = window.localStorage.getItem(`mock_game_${gamePin}`);
-        if (json) {
-          const data = JSON.parse(json);
-          setGameState(data);
-          if (data.status === 'question' && window.localStorage.getItem('currentQ') !== String(data.currentQuestionIndex)) {
-            setHasAnswered(false);
-            setSelectedOption(null);
-            setPrediction('CORRECT');
-            setBetAmount(1);
-            window.localStorage.setItem('currentQ', String(data.currentQuestionIndex));
-          }
+
+      // 2. Listen to Player's specific Data (for scores and current answer reset syncing)
+      const playerRef = doc(db, 'games', gamePin, 'players', playerId);
+      const unsubPlayer = onSnapshot(playerRef, (snapshot) => {
+        if (snapshot.exists()) {
+           setPlayerData(snapshot.data());
         }
-      }, 1000);
-      return () => clearInterval(interval);
+      });
+
+      // 3. Fetch Questions once
+      const fetchQuestions = async () => {
+         try {
+           const qSnap = await getDocs(collection(db, "games", gamePin, "questions"));
+           const list = qSnap.docs.map(d => d.data());
+           setQuestions(list);
+         } catch(e){}
+      };
+      fetchQuestions();
+
+      return () => {
+         unsubGame();
+         unsubPlayer();
+      };
     }
   }, [gamePin, playerId, navigate]);
 
   const submitAnswer = async (optOverride) => {
     const finalAnswer = optOverride || selectedOption;
-    if (hasAnswered || !gameState || gameState.isPaused || !finalAnswer) return;
+    if (hasAnswered || !gameState || gameState.isPaused || !finalAnswer || !questions.length) return;
     setHasAnswered(true);
 
-    const question = gameState.questions[gameState.currentQuestionIndex];
+    const question = questions[gameState.currentQuestionIndex];
     let isCorrect = finalAnswer === question.correctAnswer;
     
     let pointsEarned = 0;
     
     if (question.round === 1) {
-       // Casino Style Betting Logic
        const isPredictionHit = (isCorrect && prediction === 'CORRECT') || (!isCorrect && prediction === 'WRONG');
        if (isPredictionHit) {
            pointsEarned = betAmount * 2;
-           isCorrect = true; // Mark True for UI leaderboard "Correct" feedback since they won the bet
+           isCorrect = true; 
        } else {
            pointsEarned = -betAmount;
            isCorrect = false; 
@@ -102,33 +109,21 @@ export default function PlayerGame() {
     setLastResult({ isCorrect, points: pointsEarned });
 
     // Update player's score
-    const currentScore = gameState.players[playerId]?.score || 0;
+    const currentScore = playerData?.score || 0;
     const newScore = currentScore + pointsEarned;
 
-    if (rtdb) {
+    if (db) {
       try {
-        await update(ref(rtdb, `games/${gamePin}/players/${playerId}`), { score: newScore });
-        await set(ref(rtdb, `games/${gamePin}/responses/${playerId}`), {
+        await updateDoc(doc(db, `games`, gamePin, `players`, playerId), {
+          score: newScore,
           answer: finalAnswer,
           isCorrect,
           pointsEarned,
           prediction,
           betAmount
         });
-      } catch(e) {}
-    } else {
-      const json = window.localStorage.getItem(`mock_game_${gamePin}`);
-      if (json) {
-        let state = JSON.parse(json);
-        if(!state.players[playerId]) state.players[playerId] = {score: 0};
-        state.players[playerId].score += pointsEarned;
-        
-        if(!state.responses) state.responses = {};
-        state.responses[playerId] = {
-           answer: finalAnswer, isCorrect, pointsEarned, prediction, betAmount
-        };
-
-        window.localStorage.setItem(`mock_game_${gamePin}`, JSON.stringify(state));
+      } catch(e) {
+         console.error(e);
       }
     }
   };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { rtdb } from '../../firebase';
-import { ref, onValue, update } from 'firebase/database';
+import { db } from '../../firebase';
+import { doc, collection, onSnapshot, updateDoc, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Play, SkipForward, Trophy } from 'lucide-react';
 
@@ -10,41 +10,53 @@ export default function HostGame() {
   const navigate = useNavigate();
   const [gameState, setGameState] = useState(null);
   const [players, setPlayers] = useState([]);
+  const [questions, setQuestions] = useState([]);
   
   useEffect(() => {
-    if (rtdb) {
-      const gRef = ref(rtdb, `games/${gamePin}`);
-      const unsub = onValue(gRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          setGameState(data);
-          if (data.players) {
-            setPlayers(Object.values(data.players));
-          } else {
-            setPlayers([]);
-          }
-        }
+    if (!db) return;
+
+    // Listen to main game document
+    const unsubGame = onSnapshot(doc(db, "games", gamePin), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setGameState(data);
+      }
+    });
+
+    // Listen to players subcollection
+    const unsubPlayers = onSnapshot(collection(db, "games", gamePin, "players"), (querySnap) => {
+      const pList = [];
+      querySnap.forEach((d) => {
+        const pData = d.data();
+        if (!pData.isHost) pList.push(pData);
       });
-      return () => unsub();
-    } else {
-      // Offline mock polling
-      const interval = setInterval(() => {
-        const json = window.localStorage.getItem(`mock_game_${gamePin}`);
-        if (json) {
-          const data = JSON.parse(json);
-          setGameState(data);
-          setPlayers(data.players ? Object.values(data.players) : []);
-        }
-      }, 1000);
-      return () => clearInterval(interval);
-    }
+      setPlayers(pList);
+    });
+
+    // Fetch questions sequentially
+    const fetchQuestions = async () => {
+       try {
+         const qSnap = await getDocs(collection(db, "games", gamePin, "questions"));
+         const list = qSnap.docs.map(d => d.data());
+         // Sort based on their id string keys (0, 1, 2) that we wrote in HostDashboard
+         setQuestions(list);
+       } catch (e) {
+         console.error(e);
+       }
+    };
+    fetchQuestions();
+
+    return () => {
+      unsubGame();
+      unsubPlayers();
+    };
   }, [gamePin]);
 
   // Auto-advance to leaderboard when everyone has answered
   useEffect(() => {
     if (gameState && gameState.status === 'question') {
       const pCount = players.length;
-      const rCount = gameState.responses ? Object.keys(gameState.responses).length : 0;
+      const rCount = players.filter(p => p.answer !== undefined && p.answer !== null).length;
       if (pCount > 0 && rCount >= pCount) {
         showLeaderboard();
       }
@@ -52,31 +64,34 @@ export default function HostGame() {
   }, [gameState, players]);
 
   const updateState = async (updates) => {
-    if (rtdb) {
+    if (db) {
       try {
-        await update(ref(rtdb, `games/${gamePin}`), updates);
+        await updateDoc(doc(db, `games`, gamePin), updates);
       } catch(e) {}
-    } else {
-      const json = window.localStorage.getItem(`mock_game_${gamePin}`);
-      if (json) {
-        let state = JSON.parse(json);
-        state = { ...state, ...updates };
-        window.localStorage.setItem(`mock_game_${gamePin}`, JSON.stringify(state));
-      }
     }
   };
 
   const startGame = () => {
-    updateState({ status: 'question', currentQuestionIndex: 0, responses: null });
+    updateState({ status: 'question', currentQuestionIndex: 0 });
   };
 
-  const nextQuestion = () => {
+  const nextQuestion = async () => {
     if (!gameState) return;
     const nextIdx = gameState.currentQuestionIndex + 1;
-    if (nextIdx >= gameState.questions.length) {
-      updateState({ status: 'podium', responses: null });
+    
+    // Clear out 'answer' states for players for the new round
+    if (db) {
+       for (const p of players) {
+          try {
+             await updateDoc(doc(db, 'games', gamePin, 'players', p.id), { answer: null });
+          } catch(e) {}
+       }
+    }
+
+    if (nextIdx >= questions.length) {
+      updateState({ status: 'podium' });
     } else {
-      updateState({ status: 'question', currentQuestionIndex: nextIdx, responses: null });
+      updateState({ status: 'question', currentQuestionIndex: nextIdx });
     }
   };
 
