@@ -26,7 +26,7 @@ export default function PlayerGame() {
   const [questions,       setQuestions]       = useState([]);
   const [playerData,      setPlayerData]      = useState({ score: 0 });
   const [hasAnswered,     setHasAnswered]     = useState(false);
-  const [lastResult,      setLastResult]      = useState({ isCorrect: false, points: 0 });
+  const [lastResult, setLastResult] = useState({ isCorrect: false, points: 0, correctAnswer: '', chosenAnswer: '' });
 
   // Per-question selections (reset on each new question)
   const [selectedOption,  setSelectedOption]  = useState(null);   // MCQ answer
@@ -110,7 +110,7 @@ export default function PlayerGame() {
     }
 
     setHasAnswered(true);
-    setLastResult({ isCorrect, points });
+    setLastResult({ isCorrect, points, correctAnswer: question.correctAnswer, chosenAnswer: finalAnswer });
 
     try {
       await updateDoc(doc(db, 'games', gamePin, 'players', playerId), {
@@ -371,27 +371,50 @@ export default function PlayerGame() {
 
         {/* LEADERBOARD: show result */}
         {gameState.status === 'leaderboard' && (
-          <motion.div
-            key="leaderboard"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className={`text-center p-8 max-w-sm rounded-2xl text-white shadow-2xl
-              ${lastResult.isCorrect ? 'bg-green-600' : 'bg-red-600'}`}
-          >
-            <h2 className="text-5xl font-black mb-4">
-              {lastResult.isCorrect ? '✅ Correct!' : '❌ Incorrect!'}
-            </h2>
-            <div className="text-7xl mb-6 font-bold">
-              {lastResult.points > 0 ? `+${lastResult.points}` : lastResult.points}
-            </div>
-            <div className="bg-black/20 rounded-xl p-4 inline-block shadow-inner border border-black/10">
-              <span className="text-lg opacity-80 uppercase font-bold tracking-wider block mb-1">Total Score</span>
-              <span className="text-3xl font-black">{playerData?.score ?? 0}</span>
-            </div>
-            <p className="mt-8 text-sm opacity-70 font-semibold uppercase tracking-widest">
-              Look at the big screen for ranks
-            </p>
-          </motion.div>
+          hasAnswered ? (
+            <motion.div
+              key="leaderboard"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={`text-center p-8 max-w-sm w-full rounded-2xl text-white shadow-2xl
+                ${lastResult.isCorrect ? 'bg-green-600' : 'bg-red-600'}`}
+            >
+              <h2 className="text-5xl font-black mb-4">
+                {lastResult.isCorrect ? '✅ Correct!' : '❌ Wrong!'}
+              </h2>
+              <div className="text-7xl mb-4 font-bold">
+                {lastResult.points > 0 ? `+${lastResult.points}` : lastResult.points}
+              </div>
+              {/* Show correct answer so player knows what was right */}
+              <div className="bg-black/20 rounded-xl p-3 mb-4 text-sm">
+                <span className="opacity-70 block mb-1">✔ Correct answer was:</span>
+                <span className="font-black text-lg">{lastResult.correctAnswer}</span>
+              </div>
+              <div className="bg-black/20 rounded-xl p-4 inline-block shadow-inner border border-black/10">
+                <span className="text-lg opacity-80 uppercase font-bold tracking-wider block mb-1">Total Score</span>
+                <span className="text-3xl font-black">{playerData?.score ?? 0}</span>
+              </div>
+              <p className="mt-6 text-sm opacity-70 font-semibold uppercase tracking-widest">
+                Look at the big screen for ranks
+              </p>
+            </motion.div>
+          ) : (
+            // Host jumped to leaderboard before player submitted — show 'time's up'
+            <motion.div
+              key="leaderboard-noans"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center p-8 max-w-sm w-full rounded-2xl text-white shadow-2xl bg-slate-700"
+            >
+              <div className="text-6xl mb-4">⏰</div>
+              <h2 className="text-3xl font-black mb-2">Time's Up!</h2>
+              <p className="text-slate-300 mb-6">You didn't submit in time. <br/>No points this round.</p>
+              <div className="bg-black/20 rounded-xl p-4 inline-block">
+                <span className="text-lg opacity-80 uppercase font-bold tracking-wider block mb-1">Total Score</span>
+                <span className="text-3xl font-black">{playerData?.score ?? 0}</span>
+              </div>
+            </motion.div>
+          )
         )}
 
         {/* PODIUM */}
