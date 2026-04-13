@@ -87,13 +87,15 @@ export default function PlayerGame() {
     const question  = questions[gameState.currentQuestionIndex];
     if (!question) return;
 
-    const isCorrect = finalAnswer === question.correctAnswer;
+    // Trim whitespace from both sides to prevent invisible mismatch bugs
+    const isCorrect = finalAnswer.trim() === question.correctAnswer.trim();
     let   points    = 0;
 
     if (question.round === 1) {
-      // Bet scoring: correct → +10*betValue, wrong → -5*betValue
-      const bv = betValue ?? BET_OPTIONS[0]; // default to 2 if somehow null
-      points = isCorrect ? 10 * bv : -5 * bv;
+      // Hard guard: betValue MUST be set for round 1
+      if (betValue === null) return;
+      // Bet scoring: correct → +10×betValue, wrong → −5×betValue
+      points = isCorrect ? 10 * betValue : -5 * betValue;
     } else if (question.round === 2) {
       points = isCorrect ? 150 : 0;
     } else if (question.round === 3) {
@@ -191,26 +193,32 @@ export default function PlayerGame() {
 
             {/* MCQ Options */}
             <div className="grid grid-cols-2 gap-3 h-[28vh]">
-              {currentQuestion.options.map((opt, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedOption(opt)}
-                  className={`${OPTION_COLORS[i]} rounded-2xl shadow-lg border-b-8 p-3 text-xl font-bold
-                    flex items-center justify-center break-words transition-all
-                    ${selectedOption === opt
-                      ? 'ring-4 ring-white border-black/40 scale-105'
-                      : 'border-black/20 opacity-80 hover:opacity-100'}`}
-                >
-                  {opt}
-                </button>
-              ))}
+              {currentQuestion.options.map((opt, i) => {
+                const isSelected = selectedOption === opt;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedOption(opt)}
+                    className={`${OPTION_COLORS[i]} rounded-2xl shadow-lg border-b-8 p-3 text-xl font-bold
+                      flex items-center justify-center break-words transition-all duration-150 relative
+                      ${isSelected
+                        ? 'border-white scale-105 brightness-125'
+                        : 'border-black/20 opacity-30 hover:opacity-60'}`}
+                  >
+                    {isSelected && (
+                      <span className="absolute top-2 right-2 text-white text-lg leading-none">✓</span>
+                    )}
+                    {opt}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Bet Chips [2] [3] [4] */}
             <div className="bg-slate-800 p-4 rounded-xl border border-slate-600 shadow-inner">
               <h3 className="text-center font-bold mb-3 text-slate-300">
                 🪙 Place Your Bet
-                <span className="ml-2 text-xs text-slate-500">(correct → +bet, wrong → −bet)</span>
+                <span className="ml-2 text-xs text-slate-500">(correct: +10×bet pts | wrong: −5×bet pts)</span>
               </h3>
               <div className="flex gap-3 justify-center">
                 {BET_OPTIONS.map(val => (
