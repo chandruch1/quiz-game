@@ -81,11 +81,17 @@ export default function PlayerGame() {
 
   // ── Submit answer ──────────────────────────────────────────────
   const submitAnswer = async (optOverride) => {
-    const finalAnswer = optOverride || selectedOption;
-    if (hasAnswered || !gameState || gameState.isPaused || !finalAnswer) return;
-
-    const question  = questions[gameState.currentQuestionIndex];
+    const question = questions[gameState.currentQuestionIndex];
     if (!question) return;
+
+    // optOverride = option TEXT (Round 2 & 3 direct-click submit)
+    // selectedOption = option INDEX (Round 1 uses separate submit button)
+    const finalAnswer =
+      optOverride !== undefined
+        ? optOverride
+        : (selectedOption !== null ? question.options[selectedOption] : null);
+
+    if (hasAnswered || !gameState || gameState.isPaused || !finalAnswer) return;
 
     // Trim whitespace from both sides to prevent invisible mismatch bugs
     const isCorrect = finalAnswer.trim() === question.correctAnswer.trim();
@@ -136,7 +142,8 @@ export default function PlayerGame() {
       : null;
 
   // Derive submit-readiness per round
-  const canSubmitR1 = !!selectedOption && betValue !== null;
+  // selectedOption stores an index (0-3); index 0 is falsy with !!, so use !== null
+  const canSubmitR1 = selectedOption !== null && betValue !== null;
   const canSubmitR3 = confidenceLevel !== null; // answer selected via button click
 
   // ── Render ──────────────────────────────────────────────────────
@@ -194,11 +201,12 @@ export default function PlayerGame() {
             {/* MCQ Options */}
             <div className="grid grid-cols-2 gap-3 h-[28vh]">
               {currentQuestion.options.map((opt, i) => {
-                const isSelected = selectedOption === opt;
+                // Compare by INDEX so duplicate option texts don't all highlight
+                const isSelected = selectedOption === i;
                 return (
                   <button
                     key={i}
-                    onClick={() => setSelectedOption(opt)}
+                    onClick={() => setSelectedOption(i)}
                     className={`${OPTION_COLORS[i]} rounded-2xl shadow-lg border-b-8 p-3 text-xl font-bold
                       flex items-center justify-center break-words transition-all duration-150 relative
                       ${isSelected
