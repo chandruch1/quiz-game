@@ -5,7 +5,7 @@ import { doc, onSnapshot, getDocs, collection, updateDoc } from 'firebase/firest
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ── Scoring tables ─────────────────────────────────────────────
-// Round 1: answer correct → +betValue, wrong → -betValue
+// Round 1: correct → +10*betValue, wrong → -5*betValue
 // Round 2: correct → +150, wrong → 0
 // Round 3: LOW correct+10/wrong-5 | MID correct+20/wrong-10 | HIGH correct+30/wrong-15
 const CONFIDENCE_SCORE = {
@@ -91,9 +91,9 @@ export default function PlayerGame() {
     let   points    = 0;
 
     if (question.round === 1) {
-      // Bet scoring: correct → +betValue, wrong → -betValue
+      // Bet scoring: correct → +10*betValue, wrong → -5*betValue
       const bv = betValue ?? BET_OPTIONS[0]; // default to 2 if somehow null
-      points = isCorrect ? bv : -bv;
+      points = isCorrect ? 10 * bv : -5 * bv;
     } else if (question.round === 2) {
       points = isCorrect ? 150 : 0;
     } else if (question.round === 3) {

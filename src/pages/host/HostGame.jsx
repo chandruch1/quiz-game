@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../../firebase';
-import { doc, collection, onSnapshot, updateDoc, getDocs } from 'firebase/firestore';
+import { doc, collection, onSnapshot, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Play, SkipForward, Trophy } from 'lucide-react';
 
@@ -56,14 +56,15 @@ export default function HostGame() {
 
   // Auto-advance to leaderboard when everyone has answered
   useEffect(() => {
-    if (gameState && gameState.status === 'question') {
+    if (gameState && gameState.status === 'question' && !gameState.isPaused) {
       const pCount = players.length;
       const rCount = players.filter(p => p.answer !== undefined && p.answer !== null).length;
       if (pCount > 0 && rCount >= pCount) {
-        showLeaderboard();
+        // Inline update to avoid stale closure on showLeaderboard
+        updateDoc(doc(db, 'games', gamePin), { status: 'leaderboard' }).catch(() => {});
       }
     }
-  }, [gameState, players]);
+  }, [gameState, players, gamePin]);
 
   const updateState = async (updates) => {
     if (db) {
@@ -80,18 +81,24 @@ export default function HostGame() {
   const nextQuestion = async () => {
     if (!gameState) return;
     const nextIdx = gameState.currentQuestionIndex + 1;
-    
-    // Clear per-question fields for all players
-    if (db) {
-       for (const p of players) {
-          try {
-             await updateDoc(doc(db, 'games', gamePin, 'players', p.id), {
-               answer:          null,
-               betValue:        null,
-               confidenceLevel: null,
-             });
-          } catch(e) {}
-       }
+
+    // Clear per-question fields for all players using batched writes
+    // Firestore batch limit is 500 operations; chunk in groups of 490
+    if (db && players.length > 0) {
+      const chunkSize = 490;
+      for (let i = 0; i < players.length; i += chunkSize) {
+        const chunk = players.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(p => {
+          const pRef = doc(db, 'games', gamePin, 'players', p.id);
+          batch.update(pRef, {
+            answer:          null,
+            betValue:        null,
+            confidenceLevel: null,
+          });
+        });
+        try { await batch.commit(); } catch (e) { console.error('batch reset error:', e); }
+      }
     }
 
     if (nextIdx >= questions.length) {
@@ -211,10 +218,18 @@ export default function HostGame() {
           {gameState.status === 'leaderboard' && (
             <motion.div key="leaderboard" initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:0.95}} className="w-full max-w-2xl bg-slate-800 border border-slate-600 p-8 rounded-3xl shadow-2xl">
               <h2 className="text-3xl font-bold mb-8 flex items-center gap-3 justify-center"><Trophy className="text-yellow-400 w-8 h-8" /> Leaderboard</h2>
-              <div className="space-y-4">
-                {players.sort((a,b)=>(b.score||0)-(a.score||0)).map((p, i) => (
-                  <div key={i} className="flex justify-between items-center bg-slate-700/50 p-4 rounded-xl border border-white/5">
-                    <span className="text-xl font-bold text-slate-300">{i+1}. {p.name}</span>
+              <div className="space-y-3 overflow-y-auto max-h-[55vh] pr-1">
+                {[...players].sort((a,b)=>(b.score||0)-(a.score||0)).map((p, i) => (
+                  <div key={p.id || i} className={`flex justify-between items-center p-4 rounded-xl border ${
+                    i === 0 ? 'bg-yellow-500/20 border-yellow-400/40' :
+                    i === 1 ? 'bg-slate-300/10 border-slate-300/30' :
+                    i === 2 ? 'bg-orange-500/10 border-orange-400/30' :
+                    'bg-slate-700/50 border-white/5'
+                  }`}>
+                    <span className="text-xl font-bold text-slate-300 flex items-center gap-3">
+                      <span className="text-2xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`}</span>
+                      {p.name}
+                    </span>
                     <span className="text-2xl font-black">{p.score || 0}</span>
                   </div>
                 ))}
@@ -227,45 +242,48 @@ export default function HostGame() {
             </motion.div>
           )}
 
-          {gameState.status === 'podium' && (
-            <motion.div key="podium" initial={{opacity:0}} animate={{opacity:1}} className="text-center w-full">
-              <h2 className="text-5xl font-black mb-16 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-400 animate-pulse">
-                Final Podium
-              </h2>
-              <div className="flex items-end justify-center gap-4 md:gap-8 h-64">
-                {/* 2nd */}
-                {players[1] && (
-                  <motion.div initial={{height:0}} animate={{height:"60%"}} transition={{delay:0.5}} className="w-32 bg-slate-300/20 backdrop-blur rounded-t-lg relative flex flex-col items-center justify-start pt-4 border-2 border-slate-300/30">
-                    <div className="absolute -top-12 text-center w-full">
-                      <div className="text-2xl mb-1">🥈</div>
-                      <div className="font-bold truncate px-2">{players[1].name}</div>
-                      <div className="font-black text-blue-300">{players[1].score || 0} pt</div>
-                    </div>
-                  </motion.div>
-                )}
-                {/* 1st */}
-                {players[0] && (
-                  <motion.div initial={{height:0}} animate={{height:"100%"}} transition={{delay:1}} className="w-40 bg-yellow-500/20 backdrop-blur rounded-t-lg relative flex flex-col items-center justify-start pt-4 border-2 border-yellow-400/50 shadow-[0_0_40px_rgba(250,204,21,0.3)]">
-                    <div className="absolute -top-16 text-center w-full">
-                      <div className="text-4xl mb-2">🥇</div>
-                      <div className="font-bold text-lg truncate px-2">{players[0].name}</div>
-                      <div className="font-black text-2xl text-yellow-300">{players[0].score || 0} pt</div>
-                    </div>
-                  </motion.div>
-                )}
-                {/* 3rd */}
-                {players[2] && (
-                  <motion.div initial={{height:0}} animate={{height:"40%"}} transition={{delay:0.2}} className="w-32 bg-orange-500/20 backdrop-blur rounded-t-lg relative flex flex-col items-center justify-start pt-4 border-2 border-orange-500/30">
-                    <div className="absolute -top-12 text-center w-full">
-                      <div className="text-2xl mb-1">🥉</div>
-                      <div className="font-bold truncate px-2">{players[2].name}</div>
-                      <div className="font-black text-orange-300">{players[2].score || 0} pt</div>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
-          )}
+          {gameState.status === 'podium' && (() => {
+            const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+            return (
+              <motion.div key="podium" initial={{opacity:0}} animate={{opacity:1}} className="text-center w-full">
+                <h2 className="text-5xl font-black mb-16 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-400 animate-pulse">
+                  Final Podium
+                </h2>
+                <div className="flex items-end justify-center gap-4 md:gap-8 h-64">
+                  {/* 2nd */}
+                  {sorted[1] && (
+                    <motion.div initial={{height:0}} animate={{height:"60%"}} transition={{delay:0.5}} className="w-32 bg-slate-300/20 backdrop-blur rounded-t-lg relative flex flex-col items-center justify-start pt-4 border-2 border-slate-300/30">
+                      <div className="absolute -top-12 text-center w-full">
+                        <div className="text-2xl mb-1">🥈</div>
+                        <div className="font-bold truncate px-2">{sorted[1].name}</div>
+                        <div className="font-black text-blue-300">{sorted[1].score || 0} pt</div>
+                      </div>
+                    </motion.div>
+                  )}
+                  {/* 1st */}
+                  {sorted[0] && (
+                    <motion.div initial={{height:0}} animate={{height:"100%"}} transition={{delay:1}} className="w-40 bg-yellow-500/20 backdrop-blur rounded-t-lg relative flex flex-col items-center justify-start pt-4 border-2 border-yellow-400/50 shadow-[0_0_40px_rgba(250,204,21,0.3)]">
+                      <div className="absolute -top-16 text-center w-full">
+                        <div className="text-4xl mb-2">🥇</div>
+                        <div className="font-bold text-lg truncate px-2">{sorted[0].name}</div>
+                        <div className="font-black text-2xl text-yellow-300">{sorted[0].score || 0} pt</div>
+                      </div>
+                    </motion.div>
+                  )}
+                  {/* 3rd */}
+                  {sorted[2] && (
+                    <motion.div initial={{height:0}} animate={{height:"40%"}} transition={{delay:0.2}} className="w-32 bg-orange-500/20 backdrop-blur rounded-t-lg relative flex flex-col items-center justify-start pt-4 border-2 border-orange-500/30">
+                      <div className="absolute -top-12 text-center w-full">
+                        <div className="text-2xl mb-1">🥉</div>
+                        <div className="font-bold truncate px-2">{sorted[2].name}</div>
+                        <div className="font-black text-orange-300">{sorted[2].score || 0} pt</div>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })()}
 
         </AnimatePresence>
       </main>
