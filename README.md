@@ -1,181 +1,224 @@
 # 🎮 QuizPlay — Multiplayer Real-Time Quiz Game
 
-> A live, multiplayer quiz game where the host controls the game and players compete in real time — with unique scoring mechanics per round including betting, code output, and confidence-based answers.
+QuizPlay is a **real-time multiplayer quiz platform** inspired by Kahoot, designed to deliver an engaging and interactive learning experience. The application allows a host to create and control quiz sessions while multiple players join using a unique game PIN and compete in real time.
+
+Unlike traditional quiz applications, QuizPlay introduces **multiple scoring mechanics**, including betting rounds, code output challenges, and confidence-based answering, making every round unique and strategic.
 
 ---
 
-## 📸 Overview
+# 🌐 Live Demo
 
-**QuizPlay** is a full-stack real-time quiz game inspired by Kahoot, with a twist: every round has a different game mechanic that keeps players on their toes. The host creates questions, starts the game, and controls the flow — while players join on their own devices using a 6-digit PIN.
+🔗 **Website:** *Add your Vercel deployment URL here*
 
 ---
 
-## 🛠️ Tech Stack
+# 📌 Project Status
+
+**✅ MVP (Minimum Viable Product) | Portfolio Project**
+
+---
+
+# 🚀 Features
+
+- 🎤 **Host Dashboard** – Create questions and control the entire game.
+- 🎮 **Real-Time Multiplayer Gameplay** – Players join instantly using a 6-digit game PIN.
+- ⚡ **Live Leaderboard Updates** – Scores synchronize instantly using Firebase Firestore.
+- 🎯 **Multiple Quiz Modes** – Betting, Code Output, and Confidence rounds.
+- 📱 **Responsive Design** – Optimized for desktop, tablet, and mobile devices.
+- 🔥 **Real-Time Synchronization** – Automatic updates without refreshing.
+- 🏆 **Animated Final Podium** – Displays the top three winners at the end of the game.
+
+---
+
+# 🛠️ Tech Stack
 
 | Technology | Purpose |
-|---|---|
-| **React 19** | Frontend UI framework |
-| **Vite** | Fast development & build tool |
-| **Tailwind CSS v4** | Utility-first styling |
-| **Firebase Firestore** | Real-time database & game state sync |
-| **Framer Motion** | Smooth animations & transitions |
-| **React Router v7** | Client-side SPA routing |
-| **Lucide React** | Icon library |
-| **Vercel** | Production deployment & hosting |
+|------------|--------------------------------|
+| **React 19** | Frontend Framework |
+| **Vite** | Fast Development & Build Tool |
+| **Tailwind CSS v4** | Utility-First Styling |
+| **Firebase Firestore** | Real-Time Database |
+| **Framer Motion** | Animations & Transitions |
+| **React Router v7** | Client-Side Routing |
+| **Lucide React** | Icons |
+| **Vercel** | Deployment & Hosting |
 
 ---
 
-## 🗺️ How the Game Works
+# 🏗️ System Architecture
 
-### Roles
-| Role | Path | Description |
-|---|---|---|
-| 🎤 **Host** | `/host` | Creates questions, starts & controls the game |
-| 🎮 **Player** | `/` (join page) | Joins with a 6-digit PIN and their nickname |
-
-### Game Flow
-```
-Host creates questions → Starts game (6-digit PIN generated)
-         ↓
-Players join via PIN on their phones
-         ↓
-Host starts → Question shown on big screen + player phones
-         ↓
-Players answer (with round-specific mechanics)
-         ↓
-Auto-advance to Leaderboard when all answered (or host skips)
-         ↓
-Host moves to next question → Repeat
-         ↓
-Final Podium 🏆
+```text
+                  Host
+                    │
+                    ▼
+          React + Vite Frontend
+                    │
+                    ▼
+          Firebase Firestore
+                    │
+                    ▼
+      Real-Time Game State Sync
+                    │
+      ┌─────────────┴─────────────┐
+      ▼                           ▼
+ Player 1                     Player N
 ```
 
 ---
 
-## 🎯 Round Rules & Scoring
+# 📸 Application Preview
 
-### 🟡 Round 1 — Betting Round
+## 🏠 Join Screen
 
-> **"Put your money where your mouth is."**
+> Add your screenshot here
 
-In this round, players must **choose both an answer AND place a bet** before submitting.
+```markdown
+![Join Screen](images/join-screen.png)
+```
 
-**How to Play:**
-1. Read the question displayed on screen.
-2. Select **one** answer option (A, B, C, or D).
-3. Place a **bet chip**: choose `2`, `3`, or `4`.
-4. Tap **PLACE BET 🎲** to submit.
+---
 
-**Scoring:**
+## 🎤 Host Dashboard
+
+> Add your screenshot here
+
+```markdown
+![Host Dashboard](images/host-dashboard.png)
+```
+
+---
+
+## 🏆 Leaderboard
+
+> Add your screenshot here
+
+```markdown
+![Leaderboard](images/leaderboard.png)
+```
+
+---
+
+# 🎮 Game Flow
+
+```text
+Host Creates Questions
+          │
+          ▼
+Host Starts Game (PIN Generated)
+          │
+          ▼
+Players Join Using PIN
+          │
+          ▼
+Questions Displayed
+          │
+          ▼
+Players Submit Answers
+          │
+          ▼
+Leaderboard Updates
+          │
+          ▼
+Next Question
+          │
+          ▼
+Final Podium
+```
+
+---
+
+# 🎯 Game Modes & Scoring
+
+## 🟡 Betting Round
+
+Players select an answer and place a bet before submitting.
+
 | Outcome | Points |
-|---|---|
-| ✅ Correct | `+10 × bet` |
-| ❌ Wrong | `-5 × bet` |
+|------------|----------|
+| ✅ Correct | +10 × Bet |
+| ❌ Wrong | -5 × Bet |
 
-**Examples:**
-- Bet **4**, answer **correct** → `+40 points`
-- Bet **4**, answer **wrong** → `-20 points`
-- Bet **2**, answer **correct** → `+20 points`
-- Bet **2**, answer **wrong** → `-10 points`
+Example:
 
-> ⚠️ You **must** select both an answer and a bet to submit. High risk = high reward!
+- Bet 4 → Correct = +40
+- Bet 4 → Wrong = -20
 
 ---
 
-### 🔵 Round 2 — Code Output Round
+## 🔵 Code Output Round
 
-> **"Read the code, predict the output."**
+Players quickly answer code output or logic questions.
 
-This is the **standard speed round**. Questions are typically about code output, logic puzzles, or fast-fire knowledge.
-
-**How to Play:**
-1. Read the question (usually a code snippet or logic question).
-2. Tap your answer immediately — **no bet required**.
-3. First to answer correctly gains the most.
-
-**Scoring:**
 | Outcome | Points |
-|---|---|
-| ✅ Correct | `+150 points` |
-| ❌ Wrong | `0 points` |
+|------------|----------|
+| ✅ Correct | +150 |
+| ❌ Wrong | 0 |
 
-> 💡 No penalty for wrong answers — just tap fast and stay confident!
-
----
-
-### 🟣 Round 3 — Confidence Round
-
-> **"How sure are you?"**
-
-Players must choose their **confidence level first**, then pick their answer. Higher confidence means bigger rewards — but also bigger risks.
-
-**How to Play:**
-1. Select your **Confidence Level** before answering:
-   - `LOW` — small reward, small risk
-   - `MID` — medium reward, medium risk
-   - `HIGH` — big reward, big risk
-2. Tap your **answer** to submit.
-
-**Scoring Table:**
-| Confidence | ✅ Correct | ❌ Wrong |
-|---|---|---|
-| `LOW` | `+10` | `-5` |
-| `MID` | `+20` | `-10` |
-| `HIGH` | `+30` | `-15` |
-
-> ⚠️ You **must** pick a confidence level before you can select an answer. Lock in your confidence first!
+No penalty for incorrect answers.
 
 ---
 
-## 🏆 Leaderboard & Podium
+## 🟣 Confidence Round
 
-- After every question, the **Leaderboard** is shown on the host screen with live rankings.
-- Players see their own result (✅ Correct / ❌ Wrong) and points earned on their phone.
-- At the end, a **Final Podium** animates 🥇🥈🥉 places.
+Players choose a confidence level before answering.
 
----
+| Confidence | Correct | Wrong |
+|------------|----------|----------|
+| LOW | +10 | -5 |
+| MID | +20 | -10 |
+| HIGH | +30 | -15 |
 
-## ⚙️ Host Controls
-
-The host has full control over the game:
-
-| Control | Action |
-|---|---|
-| **Start Game** | Begins the game from the lobby once players have joined |
-| **Pause / Resume** | Freezes all player screens with a "PAUSED" overlay |
-| **Show Results** | Manually advances to the leaderboard |
-| **Next** | Clears player answers and moves to the next question |
-| **End Game** | Skips to the Final Podium at any time |
-
-> Auto-advance: The game automatically moves to the leaderboard once **all players have submitted** their answer.
+Higher confidence means higher reward and higher risk.
 
 ---
 
-## 🚀 Getting Started (Local Development)
+# 🏆 Leaderboard & Results
 
-### Prerequisites
-- Node.js v18+
-- A Firebase project with Firestore enabled
+- Live leaderboard after every question
+- Instant score synchronization
+- Player result screen
+- Animated final podium displaying 🥇🥈🥉 winners
 
-### 1. Clone the Repository
+---
+
+# ⚙️ Host Controls
+
+| Control | Description |
+|------------|--------------------------------|
+| Start Game | Begin quiz session |
+| Pause / Resume | Pause all player screens |
+| Show Results | Display leaderboard |
+| Next Question | Move to next round |
+| End Game | Display final podium |
+
+---
+
+# 📥 Installation
+
+## Clone Repository
+
 ```bash
 git clone https://github.com/chandruch1/quiz-game.git
+```
+
+## Navigate to Project
+
+```bash
 cd quiz-game
 ```
 
-### 2. Install Dependencies
+## Install Dependencies
+
 ```bash
 npm install
 ```
 
-### 3. Configure Environment Variables
+---
 
-Copy the example env file and fill in your Firebase credentials:
-```bash
-cp .env.example .env
-```
+# 🔥 Firebase Configuration
 
-Edit `.env`:
+Create a `.env` file.
+
 ```env
 VITE_FIREBASE_API_KEY=your_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
@@ -185,78 +228,126 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
 
-### 4. Run the Development Server
+---
+
+# ▶️ Run Development Server
+
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open
 
----
-
-## 🔥 Firebase Setup
-
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project
-3. Go to **Firestore Database** → Click **Create database**
-4. Set rules to allow reads/writes (for development):
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
+http://localhost:5173
 ```
 
 ---
 
-## 🌐 Deploying to Vercel
+# 🌐 Deployment
 
-This project includes a `vercel.json` that fixes SPA routing (no more 404 on page refresh):
+Deploy using **Vercel**.
 
-```json
-{
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
+```bash
+npm run build
 ```
 
-### Deploy Steps:
-1. Push your code to GitHub
-2. Go to [vercel.com](https://vercel.com) and import your repo
-3. Add your Firebase environment variables in Vercel's **Project Settings → Environment Variables**
-4. Deploy ✅
+The project includes SPA routing support using `vercel.json`.
 
 ---
 
-## 📁 Project Structure
+# 📁 Project Structure
 
-```
+```text
 quiz-game/
+│
 ├── public/
 ├── src/
 │   ├── pages/
 │   │   ├── host/
-│   │   │   ├── HostDashboard.jsx   # Create questions & start game
-│   │   │   └── HostGame.jsx        # Live game control panel
 │   │   └── player/
-│   │       ├── PlayerJoin.jsx      # Enter PIN & nickname
-│   │       └── PlayerGame.jsx      # All 3 round mechanics + results
-│   ├── firebase.js                 # Firebase initialization
-│   ├── App.jsx                     # Route definitions
-│   └── index.css                   # Global styles
-├── vercel.json                     # SPA rewrite rule for Vercel
+│   ├── firebase.js
+│   ├── App.jsx
+│   └── index.css
+│
+├── images/
+├── vercel.json
 ├── vite.config.js
-└── package.json
+├── package.json
+├── README.md
+└── LICENSE
 ```
 
 ---
 
-## 🙌 Author
+# 🔒 Core Functionalities
 
-Built with ❤️ by **Chandru**  
-GitHub: [@chandruch1](https://github.com/chandruch1)
+- Real-Time Multiplayer Gameplay
+- Firebase Synchronization
+- Host Dashboard
+- Live Leaderboard
+- Multiple Scoring Algorithms
+- Responsive User Interface
+- Animated Game Experience
+
+---
+
+# 🔮 Future Enhancements
+
+- User Authentication
+- AI Question Generation
+- Multiplayer Team Mode
+- Voice-Based Quiz
+- Tournament System
+- Player Profiles
+- Analytics Dashboard
+- Custom Themes
+- Question Import via CSV
+
+---
+
+# ⚠️ Disclaimer
+
+This project is developed for **educational, research, and portfolio purposes** to demonstrate real-time multiplayer application development using React and Firebase.
+
+---
+
+# 📄 License
+
+This project is licensed under the **MIT License**.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the **"Software"**), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the following conditions.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED **"AS IS"**, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+See the **LICENSE** file for complete details.
+
+---
+
+# 👨‍💻 Author
+
+## CHANDRU.R
+
+**Computer Science and Business Systems (CSBS) Undergraduate**
+
+**Full Stack Developer | Java | Spring Boot | React | Firebase | JavaScript | Real-Time Applications**
+
+Passionate about building scalable, interactive, and user-centric applications using modern web technologies, cloud services, and real-time architectures.
+
+---
+
+# 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome.
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to your branch
+5. Open a Pull Request
+
+---
+
+⭐ **If you found this project useful, consider giving it a star on GitHub!**
